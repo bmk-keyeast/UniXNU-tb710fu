@@ -8,14 +8,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 adb get-state >/dev/null
-sh() { adb shell su -c "$1" | tr -d '\r'; }
+# adb joins argv with spaces, so the whole command must reach su as one quoted string
+sh() { adb exec-out "su -c '${1//\'/\'\\\'\'}'"; }
 
 case "${1:-}" in
 --check)
   for p in mem_address mem_size mem_type record_size console_size pmsg_size ftrace_size ecc; do
     printf '%-13s %s\n' "$p" "$(sh "cat /sys/module/ramoops/parameters/$p 2>/dev/null" || true)"
   done
-  sh "grep -i ramoops /proc/iomem; ls -l /sys/fs/pstore"
+  # 6.1 does not copy mem_type/ecc back into the module parameters; the DT node is the truth
+  sh "grep -i ramoops /proc/iomem; ls -l /sys/fs/pstore; cd /proc/device-tree/reserved-memory/ramoops_region && for p in reg console-size ecc-size mem-type; do echo \$p \$(od -An -tx1 \$p); done; tail -c 200 /sys/fs/pstore/console-ramoops-0 | grep ECC"
   echo "expected by the XNU writer: console zone at mem_address + (mem_size - console - pmsg - ftrace) = 0xac340000, size 0x40000, ecc 16"
   ;;
 --mark)
