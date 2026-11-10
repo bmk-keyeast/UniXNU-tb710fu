@@ -28,8 +28,14 @@ done
 
 for p in "${!SRC[@]}"; do
   adb exec-in su -c "dd of=/dev/block/by-name/$p bs=4M 2>/dev/null; sync" < "$IMG/${SRC[$p]}"
-  dev=$(adb shell su -c "sha256sum /dev/block/by-name/$p" | cut -d' ' -f1)
-  [ "$dev" = "$(sha256sum "$IMG/${SRC[$p]}" | cut -d' ' -f1)" ] || { echo "$p: read-back mismatch" >&2; exit 1; }
+  want=$(sha256sum "$IMG/${SRC[$p]}" | cut -d' ' -f1)
+  # exec-in can return before the device-side dd finishes, so re-read a few times
+  for try in 1 2 3 4 5; do
+    sleep 3
+    dev=$(adb shell "su -c 'sync; sha256sum /dev/block/by-name/$p'" | cut -d' ' -f1)
+    [ "$dev" = "$want" ] && break
+  done
+  [ "$dev" = "$want" ] || { echo "$p: read-back mismatch" >&2; exit 1; }
   echo "wrote $p (${SRC[$p]}), read-back ok"
 done
 
