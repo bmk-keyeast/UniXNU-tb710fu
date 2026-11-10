@@ -17,10 +17,11 @@ for p in $SLOT_PARTS; do
     name=$p  # non-A/B partition
     adb shell su -c "test -e /dev/block/by-name/$name" 2>/dev/null || { echo "skip $p (absent)"; continue; }
   fi
-  adb shell su -c "dd if=/dev/block/by-name/$name of=/data/local/tmp/$name.img bs=4M 2>/dev/null && chmod 644 /data/local/tmp/$name.img"
-  adb pull "/data/local/tmp/$name.img" "$OUT/" >/dev/null
-  adb shell su -c "rm /data/local/tmp/$name.img"
-  echo "dumped $name"
+  # Stream straight to the host: no temp file on the device (KernelSU blocks chmod in /data/local/tmp).
+  adb exec-out su -c "cat /dev/block/by-name/$name" > "$OUT/$name.img"
+  size=$(adb shell su -c "blockdev --getsize64 /dev/block/by-name/$name" | tr -d '\r')
+  [ "$(wc -c < "$OUT/$name.img")" -eq "$size" ] || { echo "short read: $name"; exit 1; }
+  echo "dumped $name ($size bytes)"
 done
 
 {
