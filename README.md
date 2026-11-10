@@ -23,7 +23,7 @@ Gunyah가 EL2를 갖고 있어서 XNU는 EL1에서 동작한다. Apple 커널캐
 | 1 | UEFI: 기기 `uefi_a`에서 추출한 Qualcomm DXE(UEFIReader) + 스톡 메모리 맵(`xbl_config`) + UniXNU/DarwinBoot 통합 | ✅ `SILICIUM_UEFI.fd` 0x300000 빌드 (WSL) |
 | 1b | 페이로드(64 MiB FAT) → `vendor_boot`(GKI라 boot에 ramdisk 없음), `boot.img` | ✅ 빌드, 기기 미검증 |
 | 2 | XNU 커널 빌드 (GitHub macOS 러너) | ✅ xnu-10063.141.1 + SM8650 패치, iPadOS 17.7.11 커널캐시로 prelink (약 10분) |
-| 3 | 슬롯 b로 서명 이미지 부팅 → UEFI 메뉴 → DarwinBoot → 커널 로그 화면 | 🟡 서명·플래시 스크립트 완료, 슬롯 b 덤프와 기기 테스트 대기 |
+| 3 | 슬롯 b로 서명 이미지 부팅 → UEFI 메뉴 → DarwinBoot → 커널 로그 화면 | 🟡 슬롯 b 이미지 서명·체인 검증 완료, 기기 부팅 대기 |
 | 4 | UFS 루트 마운트, launchd | ⏳ |
 | 5 | 디스플레이·터치(NT36532 / Novatek SPI) | ⏳ |
 | 6 | OS 프로필을 macOS 26.5로 전환 ([macOS-ForSheng](https://github.com/CrossDarwin/macOS-ForSheng) 방식) | ⏳ |
@@ -67,7 +67,7 @@ cd ../UniXNU
 cd ../UniXNU
 ./unixnu build firmware --uefi ../uefi-tb710fu
 UNIXNU_UNIQUE_CHIP_ID=<soc0 serial hex> ./unixnu build payload
-./unixnu vendor_boot --stock ../UniXNU-tb710fu/firmware-dump/vendor_boot_b.img \
+./unixnu vendor_boot --stock ../UniXNU-tb710fu/firmware-dump/vendor_boot_a.img \
   --ramdisk out/tb710fu/*/tb710fu/payload/payload.img --ramdisk-addr 0x2400000
 ./unixnu bootimg --uefi ../uefi-tb710fu --dtb ../UniXNU-tb710fu/firmware-dump/live-fdt.dtb --ramdisk none
 ```
@@ -77,22 +77,29 @@ UNIXNU_UNIQUE_CHIP_ID=<soc0 serial hex> ./unixnu build payload
 잠긴 부트로더는 `fastboot boot`/`flash`를 거부한다. 대신 LTBox와 같은 testkey 경로를 쓴다.
 스톡 vbmeta가 AOSP testkey(`2597c218…`)로 서명돼 있어서 다시 서명할 수 있다.
 
-- `boot`: vbmeta에서 testkey로 chain(롤백 위치 3) → testkey 해시 푸터
-- `vendor_boot`: vbmeta 안의 해시 descriptor → 다시 계산한 뒤 vbmeta를 testkey로 재서명 (`scripts/avb/avbsign.py rehash`)
+- `boot`: vbmeta_a에서 testkey로 chain(롤백 위치 3) → testkey 해시 푸터
+- `vendor_boot`: vbmeta_a 안의 해시 descriptor → 다시 계산한 뒤 testkey로 재서명 (`scripts/avb/avbsign.py rehash`)
 
-Android는 슬롯 a에 그대로 두고 슬롯 b만 바꾼다.
+순정 슬롯 b는 펌웨어가 섞여 있어서 vbmeta_b의 dtbo/vendor_boot 해시가 슬롯 b 파티션과 맞지 않는다.
+그래서 [tb710fu-arch-linux](https://github.com/bmk-mikufan/tb710fu-arch-linux)와 같은 방식으로
+**슬롯 b = 슬롯 a의 AVB 체인(vbmeta_system, dtbo, init_boot, recovery) + UniXNU boot/vendor_boot + 재서명한 vbmeta_a**로 만든다.
+Android는 슬롯 a에 그대로 두고, 활성 슬롯은 바꾸지 않는다(직접 전환).
 
 ```bash
-SLOT=_b scripts/dump-firmware.sh firmware-dump   # vbmeta_b, boot_b, vendor_boot_b 덤프 (읽기만)
-# vendor_boot는 vendor_boot_b.img를 --stock으로 다시 만든 뒤
-scripts/sign-images.sh firmware-dump images      # boot-signed.img, vbmeta-signed.img
-scripts/flash-slot-b.sh --activate images         # 슬롯 b 원본 백업 → 쓰기 → 읽어서 확인 → 슬롯 b 활성화 → 재부팅
+scripts/dump-firmware.sh firmware-dump            # 슬롯 a: vbmeta_a, boot_a, vendor_boot_a 등 (읽기만)
+# vendor_boot는 vendor_boot_a.img를 --stock으로 다시 만든 뒤
+scripts/sign-images.sh firmware-dump images      # images/slot-b/{boot_b,vendor_boot_b,vbmeta_b}.img
+scripts/flash-slot-b.sh                           # 미리 점검만 (dry run)
+scripts/flash-slot-b.sh images/slot-b --write     # 기기에서 쓰기 + cmp 확인, 이전 슬롯 b 7개 파티션을 firmware-dump/slot-b-backup-<시각>/으로 받아옴
 ```
 
+쓰기는 기기 안에서 `scripts/android/flash-slot-b.sh`(tb710fu-arch-linux에서 가져옴)가 한다.
+Linux 세션과 슬롯 b를 같이 쓰므로, 쓰기 전에 어느 쪽이 슬롯 b를 쓸지 정한다.
+
 되돌리기:
-- 슬롯 b가 몇 번 부팅에 실패하면 ABL이 슬롯 a(Android)로 돌아간다.
-- Android에서 `scripts/restore-slot-b.sh`를 실행하면 슬롯 b가 원본으로 돌아간다.
-- Android가 뜨지 않으면 LTBox 고급 도구의 **EDL 파티션 쓰기**로 `firmware-dump/slot-b-backup/*.img`를 되돌린다.
+- 슬롯 b는 부팅 성공 표시를 받지 못하므로, 재시도 횟수(최대 7)를 다 쓰면 ABL이 슬롯 a(Android)로 돌아간다. XNU는 패닉 15초, 멈춤 120초 뒤 스스로 리셋한다.
+- `scripts/flash-slot-b.sh firmware-dump/slot-b-backup-<시각> --write`로 이전 슬롯 b를 되돌린다.
+- Android가 뜨지 않으면 LTBox 고급 도구의 **EDL 파티션 쓰기**로 백업 이미지를 되돌린다.
 
 ## 부팅 로그 보기 (UART 없음)
 
