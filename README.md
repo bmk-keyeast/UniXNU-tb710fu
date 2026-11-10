@@ -102,7 +102,19 @@ scripts/flash-slot-b.sh --activate images         # 슬롯 b 원본 백업 → �
 | UniXNU 메뉴 | 메뉴의 `payload: initrd ... fs <n>` 줄. `fs 0`이면 FAT 인식 실패이고, `xnu` 항목이 없으면 페이로드를 못 찾은 것 |
 | DarwinBoot → 커널 | 커널로 넘어가기 직전에 화면 위쪽 1/16이 초록색으로 칠해진다 = 커널 진입 직전까지 성공 |
 | XNU | `-v`로 커널 로그가 화면에 출력되고, `panic_screen = true`로 패닉 문자열도 화면에 그린다. 사진으로 남긴다 |
-| 저장되는 로그 | UFS가 동작한 뒤 예약 영역에 커널 로그를 쓰고 Android(root)에서 `dd`로 읽는다 (아직 미구현) |
+| **ramoops (RAM)** | 커널 콘솔 전체를 스톡 Android의 ramoops 콘솔 영역(`0xac340000`)에 pstore 형식으로 기록한다. 패닉이 나면 15초 뒤, 멈추면 120초 뒤 PSCI로 리셋된다. 슬롯 b가 부팅에 몇 번 실패하면 ABL이 슬롯 a로 돌아가고, Android에서 `scripts/read-ramoops.sh`로 읽는다 |
+| 저장되는 로그 (UFS) | UFS가 동작한 뒤 `pstoredump`(128 MiB) 파티션에 기록한다 (미구현) |
+
+ramoops를 쓰기 전에 Android에서 한 번 확인한다.
+
+```bash
+scripts/read-ramoops.sh --check   # 스톡 ramoops 배치가 0xac340000 / 0x40000 / ecc 16과 맞는지
+scripts/read-ramoops.sh --mark    # 커널 로그에 마커를 남기고 재부팅
+scripts/read-ramoops.sh           # 재부팅 뒤: console-ramoops-0에 마커가 있으면 리셋 후에도 보존됨
+```
+
+슬롯 b가 몇 번 다시 시도되기 때문에, 매 XNU 부팅이 같은 영역에 이어서 기록된다(`=== TB710FU XNU boot ===` 줄로 구분).
+링 버퍼가 256 KiB라서 오래된 부분은 덮어써질 수 있다.
 
 ## 메모
 
