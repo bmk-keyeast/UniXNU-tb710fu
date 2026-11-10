@@ -74,7 +74,12 @@ jobs:
         working-directory: UniXNU
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./unixnu build kernel -j "$(sysctl -n hw.ncpu)" 2>&1 | tee ../kernel.log
+        # The bootstrap pass ends in an expected link error (compile records only);
+        # the step result is the final build + prelink. pipefail keeps tee from hiding it.
+        run: |
+          set -o pipefail
+          ./unixnu build kernel -j "$(sysctl -n hw.ncpu)" 2>&1 | tee ../kernel.log
+          test -s out/tb710fu/*/*/kernel/kernel.macho
       - name: logs
         if: always()
         uses: actions/upload-artifact@v4

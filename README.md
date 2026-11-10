@@ -21,7 +21,7 @@ Gunyah가 EL2를 갖고 있어서 XNU는 EL1에서 동작한다. Apple 커널캐
 |---|---|---|
 | 0 | 보드 DTS(메인라인에서 생성), SoC 피드, defconfig, `unixnu status` 해석 | ✅ |
 | 1 | UEFI 보드 패키지 초안(메모리 맵, 프레임버퍼 3200x2000, SMBIOS) | 🟡 기기 펌웨어 덤프 필요 |
-| 2 | XNU 커널 빌드 (GitHub macOS 러너) | 🟡 CI |
+| 2 | XNU 커널 빌드 (GitHub macOS 러너) | ✅ xnu-10063.141.1 + SM8650 패치, iPadOS 17.7.11 커널캐시로 prelink (약 10분) |
 | 3 | `fastboot boot`로 UEFI 메뉴 → DarwinBoot → 커널 로그 화면 | ⏳ 부트로더 언락 후 |
 | 4 | UFS 루트 마운트, launchd | ⏳ |
 | 5 | 디스플레이·터치(NT36532 / Novatek SPI) | ⏳ |
