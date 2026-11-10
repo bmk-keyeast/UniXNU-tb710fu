@@ -1,0 +1,70 @@
+# Lenovo Xiaoxin Pad Pro GT / TB710FU. SM8650, arm64 target.
+# Hardware values: mainline Linux (SpendyYT/tb710fu-linux, sm8650-lenovo-tb710fu.dts).
+# SoC support: loolooc/UniXNU-sm8650-common. Reference boards: houji (Xiaomi 14), meizu21.
+schema_version = 2
+
+[board]
+example = false
+name = "tb710fu"
+soc = "SM8650"
+soc_source = "sm8650"
+# Bring-up profile: the arm64 iPadOS 17 path is the one proven on SM8650 (houji).
+# The macOS 26.5 profile (CrossDarwin/macOS-ForSheng) follows once UEFI, UFS and
+# display work on this board; those layers are OS-independent.
+os_profile = "ipados-17.7.11-21H461"
+description = "Lenovo Xiaoxin Pad Pro GT (TB710FU)"
+kit = "tb710fu"
+
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot"]
+
+[kernel]
+defconfig = "tb710fu_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8650.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
+
+[device_tree]
+# Generated: scripts/gen-board-dts.py <mainline sm8650-lenovo-tb710fu.dtb>
+source = "device:dts/tb710fu.dts"
+include_dirs = ["soc:dts"]
+
+[firmware]
+# Mu-Silicium checkout with uefi/ of this repository copied over it
+# (Platforms/Lenovo/tb710fuPkg, Resources/Configs/tb710fu.toml).
+config = "tb710fu"
+dsc = "Platforms/Lenovo/tb710fuPkg/tb710fu.dsc"
+fd = "Build/tb710fuPkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+submodules = ["Common/Mu", "Common/Mu_OEM_Sample", "Mu_Basecore", "Silicium-ACPI"]
+packages = ["{uefi}", "{uefi}/Common/Mu", "{uefi}/Common/Mu_OEM_Sample", "{uefi}/Platforms/Lenovo", "{uefi}/Silicon/Qualcomm", "{uefi}/Silicon/Silicium", "{tree}/package", "{tree}/drivers/DarwinBoot", "{edk2}"]
+
+[firmware.defines]
+DEVICE_MODEL = "0"
+ENABLE_SECUREBOOT = "0"
+
+[bootimg]
+# Firmware DTB for the boot image: the mainline TB710FU DTB (ABL needs a matching msm-id/board-id).
+dtb = "build/tb710fu/sm8650-lenovo-tb710fu.dtb"
+
+[bootimg.image]
+# Must match [uefi_fd] in uefi/Resources/Configs/tb710fu.toml.
+base = 0xA7100000
+pagesize = 4096
+header_version = 4
+
+[payload]
+volume = "TB710FUESP"
+size_mib = 192
+loader = "firmware"
+title = "UniXNU TB710FU"
+kernel_args = ["-v", "serial=3"]
+
+[package]
+unixnu = "../UniXNU"
+
+[package.defconfig]
+"ipados-17.7.11-21H461" = "tb710fu_defconfig"
+
+[payload.adt]
+chip_id = "207"
+# Device seed: fastboot getvar chipid (scripts/dump-firmware.sh records it). Never commit it.
+unique_chip_id = "required"

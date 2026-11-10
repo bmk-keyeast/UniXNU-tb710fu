@@ -1,0 +1,10 @@
+# Required firmware inputs: relative path | source | SHA-256 | consumer
+# None are committed. scripts/dump-firmware.sh copies them from the tablet into firmware-dump/.
+uefi_a.img       | /dev/block/by-name/uefi_a       | (record after dump) | Mu-Silicium Binaries/tb710fu (DXE drivers, uefiplat.cfg)
+xbl_a.img        | /dev/block/by-name/xbl_a        | (record after dump) | reference only
+xbl_config_a.img | /dev/block/by-name/xbl_config_a | (record after dump) | reference only
+abl_a.img        | /dev/block/by-name/abl_a        | (record after dump) | boot image header/base check
+imagefv_a.img    | /dev/block/by-name/imagefv_a    | (record after dump) | splash/logo FV
+uefisecapp_a.img | /dev/block/by-name/uefisecapp_a | (record after dump) | UEFI variables
+vendor_boot_a.img| /dev/block/by-name/vendor_boot_a| (record after dump) | stock DTB: full reserved-memory, splash region
+qcom/sm8650/LENOVO/TB710FU/* | SpendyYT/linux-firmware-tb710fu | per file | GMU/ADSP/CDSP for later drivers

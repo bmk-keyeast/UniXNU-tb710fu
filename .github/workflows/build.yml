@@ -1,0 +1,94 @@
+name: build
+
+# checks: host-side selftests, memory-map overlap check, board DTS compile (Linux, cheap).
+# kernel: XNU kernel for tb710fu on a macOS runner (needs Xcode). Logs only are kept long;
+#         the kernel artifact lives one day because prelink pulls Apple kexts from the IPSW.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      kernel:
+        description: Build the XNU kernel (macOS runner)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y -qq device-tree-compiler
+      - name: selftests
+        run: |
+          python3 scripts/gen-board-dts.py --selftest
+          python3 scripts/check-memory-map.py --selftest
+      - name: UEFI memory map vs board DTS
+        run: python3 scripts/check-memory-map.py
+      - name: board DTS compiles against the pinned SoC DTSI
+        run: |
+          commit=$(sed -n 's/^commit = "\(.*\)"/\1/p' feeds.toml)
+          git clone -q https://github.com/loolooc/UniXNU-sm8650-common /tmp/soc
+          git -C /tmp/soc checkout -q "$commit"
+          dtc -q -I dts -O dtb -i /tmp/soc/dts -o /tmp/tb710fu.dtb dts/tb710fu.dts
+          echo "no-map regions: $(dtc -q -I dtb -O dts /tmp/tb710fu.dtb | grep -c no-map)"
+
+  kernel:
+    needs: checks
+    if: github.event_name == 'workflow_dispatch' && inputs.kernel
+    runs-on: macos-26
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          path: UniXNU
+          submodules: recursive
+      - name: tools
+        run: |
+          brew install dtc llvm lld cmake ninja unifdef mtools blacktop/tap/ipsw
+          for x in 26.6 26.5 26.4; do
+            [ -d "/Applications/Xcode_$x.app" ] && { sudo xcode-select -s "/Applications/Xcode_$x.app"; break; }
+          done
+          xcodebuild -version
+      - name: configure
+        working-directory: UniXNU
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./unixnu defconfig tb710fu_defconfig -D ../device
+          ./unixnu fetch
+          ./unixnu status --json | tee ../status.json
+      - name: kernel
+        working-directory: UniXNU
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./unixnu build kernel -j "$(sysctl -n hw.ncpu)" 2>&1 | tee ../kernel.log
+      - name: logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          if-no-files-found: warn
+          path: |
+            status.json
+            kernel.log
+            UniXNU/out/tb710fu/**/*.log
+      - name: kernel
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel
+          retention-days: 1
+          path: UniXNU/out/tb710fu/*/*/kernel/kernel.macho
