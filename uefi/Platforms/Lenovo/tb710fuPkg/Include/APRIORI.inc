@@ -54,7 +54,6 @@ APRIORI DXE {
   INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 
   INF Binaries/tb710fu/QcomPkg/Drivers/DDRInfoDxe/DDRInfoDxe.inf
-  INF Binaries/tb710fu/QcomPkg/Drivers/OcdtDxe/OplusProject.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/FeatureEnablerDxe/FeatureEnablerDxe.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/PILProxyDxe/PILProxyDxe.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/PILDxe/PILDxe.inf

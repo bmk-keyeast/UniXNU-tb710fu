@@ -87,8 +87,22 @@
   #
   ConfigurationMapLib|tb710fuPkg/Library/ConfigurationMapLib/ConfigurationMapLib.inf
 
+  #
+  # UniXNU
+  #
+  UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf
+  FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
+
 [Components]
   #
   # ACPI Tables
   #
   #tb710fu/AcpiTables.inf
+
+  #
+  # UniXNU boot manager, payload RAM disk and the Darwin loader
+  #
+  UniXNUPkg/Application/UniXNU/UniXNU.inf
+  UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+  UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+  DarwinBootPkg/Driver/DarwinBoot.inf

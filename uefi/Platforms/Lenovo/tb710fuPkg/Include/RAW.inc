@@ -4,89 +4,9 @@
   }
 
 !if $(USE_CUSTOM_DISPLAY_DRIVER) == 1
-  FILE FREEFORM = FFC5906E-0AFD-4F96-811E-2CDAED3BE3B1 {
-    SECTION UI = Panel_csot_nt36532_2120_3000_dual_dsc_144hz_vid.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_csot_nt36532_2120_3000_dual_dsc_144hz_vid.xml
-  }
-
-  FILE FREEFORM = BE71899C-4836-480E-BD9D-A1371936774E {
-    SECTION UI = Panel_nt35652w_2000_2800_dual_dsc_144hz_vid.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_nt35652w_2000_2800_dual_dsc_144hz_vid.xml
-  }
-
-  FILE FREEFORM = 81E11065-F918-4F95-9C3B-5CD7EAA9B3CE {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 6C457004-C366-496C-8637-31D09E07D095 {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_high_pre_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_high_pre_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 63D6A7C9-56DF-4271-8F72-B16E433DD895 {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_evt_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_evt_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = A434BC54-888D-470B-B60A-46406C78D61C {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_evt_old_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_evt_old_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = DB426199-7949-4217-AE4F-D63727B884D5 {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_dvt_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_dvt_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 62337AFC-3A81-48E9-A2D1-196BC130BEF4 {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_dvt_low_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_dvt_low_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 955533D9-856F-4705-9967-16DD32FE2C6A {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_pvt_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_pvt_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = EC0F8F48-2E37-4CAB-A406-9428413ABE4C {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_pre_pvt_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_pre_pvt_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = E850A68A-71C2-47DD-9273-333255F94E6F {
-    SECTION UI = Panel_enzo_boe_ili7838e_1264_2780_pvt_bd_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_enzo_boe_ili7838e_1264_2780_pvt_bd_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = D51F9431-A349-41D5-9851-6EAC8A3FDA8C {
-    SECTION UI = Panel_divo_P_3_AB781_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_divo_P_3_AB781_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = E0ABCA0D-64AD-49DF-B2B5-8C6CDB7741B2 {
-    SECTION UI = Panel_AA567_P_3_A0004_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_AA567_P_3_A0004_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 9CFBDB42-EB49-4108-B8C7-068B6B0446F5 {
-    SECTION UI = Panel_AA577_P_3_A0020_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_AA577_P_3_A0020_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = C11015D9-B290-4190-B0BA-4E0BD0EDCF79 {
-    SECTION UI = Panel_AC545_P_1_A0006_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_AC545_P_1_A0006_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 5A79E9A0-A484-4F0D-BC30-D86DCAA0CA74 {
-    SECTION UI = Panel_AC545_P_3_A0005_dsc_cmd.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_AC545_P_3_A0005_dsc_cmd.xml
-  }
-
-  FILE FREEFORM = 96D363D7-3799-4EA9-BFDE-FEC4F12C7B6F {
-    SECTION UI = Panel_AC545_P_3_A0005_dsc_cmd_mura.xml
-    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_AC545_P_3_A0005_dsc_cmd_mura.xml
+  FILE FREEFORM = 4E1F0C8A-6B2D-4A51-9E3C-7D10F0C7E710 {
+    SECTION UI = Panel_nt36532_wqhd_dual_dsi_dsc_vid.xml
+    SECTION RAW = Binaries/tb710fu/RawFiles/Panel_nt36532_wqhd_dual_dsi_dsc_vid.xml
   }
 
   FILE FREEFORM = 8CAE2C55-FC5A-410B-812B-8CA22F572F36 {

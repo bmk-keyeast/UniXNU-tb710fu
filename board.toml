@@ -42,8 +42,8 @@ DEVICE_MODEL = "0"
 ENABLE_SECUREBOOT = "0"
 
 [bootimg]
-# Firmware DTB for the boot image: the mainline TB710FU DTB (ABL needs a matching msm-id/board-id).
-dtb = "build/tb710fu/sm8650-lenovo-tb710fu.dtb"
+# Firmware DTB for the boot image: the device's own /sys/firmware/fdt (Silicium guide),
+# passed with --dtb firmware-dump/live-fdt.dtb (not committed).
 
 [bootimg.image]
 # Must match [uefi_fd] in uefi/Resources/Configs/tb710fu.toml.
@@ -53,7 +53,9 @@ header_version = 4
 
 [payload]
 volume = "TB710FUESP"
-size_mib = 192
+# GKI: boot has no ramdisk, so the payload rides in vendor_boot (96 MiB partition).
+# Load it at 0x2400000 (vendor DTB occupies 0x1f00000-0x2217e5d): ./unixnu vendor_boot --ramdisk-addr 0x2400000
+size_mib = 64
 loader = "firmware"
 title = "UniXNU TB710FU"
 kernel_args = ["-v", "serial=3"]
@@ -66,5 +68,8 @@ unixnu = "../UniXNU"
 
 [payload.adt]
 chip_id = "207"
+# XNU manages one contiguous window. DDR is split (2 GiB low, 6 GiB high with secure holes);
+# DarwinBoot takes this much from UEFI conventional memory (2 GiB, as on caihong/SM8650).
+owned_memory_size = "0x80000000"
 # Device seed: fastboot getvar chipid (scripts/dump-firmware.sh records it). Never commit it.
 unique_chip_id = "required"

@@ -9,11 +9,11 @@
     model = "Lenovo Xiaoxin Pad Pro GT (TB710FU)";
     compatible = "lenovo,tb710fu", "qcom,sm8650";
 
-    // ABL rewrites the real bank layout at boot; the ADT needs a static size.
-    // 8 GiB SKU. Confirm with: adb shell cat /proc/meminfo
-    memory@80000000 {
+    // Largest contiguous DDR run of the live device tree (8 GB SKU: 2 GiB low bank,
+    // 6 GiB high bank with secure holes). DarwinBoot allocates the owned window inside it.
+    memory@8c0000000 {
         device_type = "memory";
-        reg = <0 0x80000000 2 0x0>;
+        reg = <0x8 0xc0000000 0x1 0x40000000>;
     };
 
     reserved-memory {
@@ -51,9 +51,11 @@
         q6-cdsp-dtb@9de00000 { reg = <0 0x9de00000 0 0x80000>; no-map; };
         q6-adsp-dtb@9de80000 { reg = <0 0x9de80000 0 0x80000>; no-map; };
         adspslpi@9df00000 { reg = <0 0x9df00000 0 0x4080000>; no-map; };
+        display-demura@a3600000 { reg = <0 0xa3600000 0 0x2b00000>; no-map; };
         ramoops@ac300000 { reg = <0 0xac300000 0 0x100000>; };
         rmtfs@d3000000 { reg = <0 0xd3000000 0 0x400000>; no-map; };
         hwfence-shbuf@d4e23000 { reg = <0 0xd4e23000 0 0x2dd000>; no-map; };
+        display-reserved@d5100000 { reg = <0 0xd5100000 0 0x2b00000>; no-map; };
         tz-merged@d8000000 { reg = <0 0xd8000000 0 0x800000>; no-map; };
         trust-ui-vm@f3800000 { reg = <0 0xf3800000 0 0x4400000>; no-map; };
         oem-vm@f7c00000 { reg = <0 0xf7c00000 0 0x4c00000>; no-map; };

@@ -40,6 +40,13 @@
   INF FatPkg/EnhancedFatDxe/Fat.inf
   INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 
+  # UniXNU: the payload FAT arrives as the ABL initrd; DarwinBoot must live in the
+  # firmware volume (a loader read from a volume is refused by image verification).
+  INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+  INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+  INF DarwinBootPkg/Driver/DarwinBoot.inf
+  INF UniXNUPkg/Application/UniXNU/UniXNU.inf
+
   INF Binaries/tb710fu/QcomPkg/Drivers/UFSDxe/UFSDxe.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/CmdDbDxe/CmdDbDxe.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/PwrUtilsDxe/PwrUtilsDxe.inf
@@ -84,7 +91,6 @@
   INF Binaries/tb710fu/QcomPkg/Drivers/SSRDxe/SSRDxe.inf
   # Crashes
   # INF Binaries/tb710fu/QcomPkg/Drivers/GLinkDxe/GLinkDxe.inf
-  INF Binaries/tb710fu/QcomPkg/Drivers/OcdtDxe/OplusProject.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/PmicGlinkDxe/PmicGlinkDxe.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/QcomChargerDxe/QcomChargerDxeLA.inf
   INF Binaries/tb710fu/QcomPkg/Drivers/UsbPwrCtrlDxe/UsbPwrCtrlDxe.inf

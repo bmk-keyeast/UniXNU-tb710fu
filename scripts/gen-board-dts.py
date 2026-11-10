@@ -5,7 +5,11 @@ The reserved-memory map comes from the compiled mainline DTB
 (arch/arm64/boot/dts/qcom/sm8650-lenovo-tb710fu.dtb), which merges the
 sm8650.dtsi regions with the board's own overrides (rmtfs, hwfence, ...).
 
-usage: gen-board-dts.py LINUX_DTB [--dtc PATH] [--ram-gib N] > dts/tb710fu.dts
+The /memory window is the largest contiguous DDR run of the live device tree
+(/sys/firmware/fdt, banks written by ABL): XNU manages one contiguous window.
+TB710FU DDR is split (2 GiB at 0x80000000, 6 GiB at 0x880000000 with secure holes).
+
+usage: gen-board-dts.py LINUX_DTB LIVE_FDT [--dtc PATH] > dts/tb710fu.dts
        gen-board-dts.py --selftest
 """
 import argparse
@@ -15,6 +19,26 @@ import sys
 
 NODE = re.compile(r"^\t\t([\w,.+-]+)@([0-9a-f]+) \{$")
 REG = re.compile(r"^\t\t\treg = <((?:0x[0-9a-f]+ ?)+)>;$")
+
+# Regions of the stock UEFI memory map (xbl_config, scripts/stock-memory-map.py) that
+# mainline Linux does not reserve but the display engine owns while the ABL splash scans out.
+EXTRA = [("display-demura", 0xA3600000, 0x2B00000), ("display-reserved", 0xD5100000, 0x2B00000)]
+
+
+def largest_ddr_run(live_dts):
+    """Largest contiguous run of the live /memory reg (address/size cells = 2)."""
+    m = re.search(r"\n\tmemory \{.*?\n\t\treg = <([^>]*)>;", live_dts, re.S)
+    if not m:
+        sys.exit("no /memory reg in the live FDT")
+    c = [int(x, 16) for x in m.group(1).split()]
+    runs = sorted(((c[i] << 32) | c[i + 1], (c[i + 2] << 32) | c[i + 3]) for i in range(0, len(c), 4))
+    merged = []
+    for base, size in runs:
+        if size and merged and merged[-1][0] + merged[-1][1] == base:
+            merged[-1][1] += size
+        elif size:
+            merged.append([base, size])
+    return max(merged, key=lambda r: r[1])
 
 
 def reserved_regions(dts_text):
@@ -45,7 +69,8 @@ def reserved_regions(dts_text):
             name = None
 
 
-def render(regions, ram_gib):
+def render(regions, window):
+    base, size = window
     out = [
         "// SPDX-License-Identifier: BSD-3-Clause",
         "// Lenovo Xiaoxin Pad Pro GT (TB710FU) board device tree for UniXNU.",
@@ -58,11 +83,11 @@ def render(regions, ram_gib):
         '    model = "Lenovo Xiaoxin Pad Pro GT (TB710FU)";',
         '    compatible = "lenovo,tb710fu", "qcom,sm8650";',
         "",
-        "    // ABL rewrites the real bank layout at boot; the ADT needs a static size.",
-        f"    // {ram_gib} GiB SKU. Confirm with: adb shell cat /proc/meminfo",
-        "    memory@80000000 {",
+        "    // Largest contiguous DDR run of the live device tree (8 GB SKU: 2 GiB low bank,",
+        "    // 6 GiB high bank with secure holes). DarwinBoot allocates the owned window inside it.",
+        f"    memory@{base:x} {{",
         '        device_type = "memory";',
-        f"        reg = <0 0x80000000 {ram_gib >> 2} {(ram_gib & 3) << 30:#x}>;",
+        f"        reg = <{base >> 32:#x} {base & 0xFFFFFFFF:#x} {size >> 32:#x} {size & 0xFFFFFFFF:#x}>;",
         "    };",
         "",
         "    reserved-memory {",
@@ -71,6 +96,7 @@ def render(regions, ram_gib):
         "        ranges;",
         "",
     ]
+    regions = regions + [(n, a, s, True) for n, a, s in EXTRA]
     for name, addr, size, no_map in sorted(regions, key=lambda r: r[1]):
         flag = " no-map;" if no_map else ""
         out.append(f"        {name}@{addr:x} {{ reg = <0 {addr:#x} 0 {size:#x}>;{flag} }};")
@@ -112,28 +138,35 @@ SAMPLE = """\
 def selftest():
     got = list(reserved_regions(SAMPLE))
     assert got == [("hyp", 0x80000000, 0xE00000, True), ("ramoops", 0xAC300000, 0x100000, False)], got
-    dts = render(got, 12)
-    assert "reg = <0 0x80000000 3 0x0>;" in dts, dts  # 12 GiB = 0x3_0000_0000
+    live = ("\n\tmemory {\n\t\tddr_device_type = <0x08>;\n\t\treg = <0x00 0x816e0000 0x00 0x320000"
+            " 0x08 0xc0000000 0x00 0x40000000 0x08 0x80000000 0x00 0x2fb00000"
+            " 0x09 0x00 0x01 0x00 0x00 0xd8800000 0x00 0x00>;\n\t};")
+    window = largest_ddr_run(live)
+    assert window == [0x8C0000000, 0x140000000], [hex(x) for x in window]  # 1 GiB + adjacent 4 GiB merged
+    dts = render(got, window)
+    assert "memory@8c0000000 {" in dts and "reg = <0x8 0xc0000000 0x1 0x40000000>;" in dts, dts
     assert "hyp@80000000 { reg = <0 0x80000000 0 0xe00000>; no-map; };" in dts
     assert "ramoops@ac300000 { reg = <0 0xac300000 0 0x100000>; };" in dts
-    assert "reg = <0 0x80000000 4 0x0>;" in render(got, 16)
+    assert "display-demura@a3600000 { reg = <0 0xa3600000 0 0x2b00000>; no-map; };" in dts
     print("selftest ok")
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("dtb", nargs="?")
+    p.add_argument("live_fdt", nargs="?")
     p.add_argument("--dtc", default="dtc")
-    p.add_argument("--ram-gib", type=int, default=12)
     p.add_argument("--selftest", action="store_true")
     a = p.parse_args()
     if a.selftest:
         return selftest()
-    if not a.dtb:
-        p.error("LINUX_DTB is required")
-    text = subprocess.run([a.dtc, "-q", "-I", "dtb", "-O", "dts", a.dtb],
-                          check=True, capture_output=True, text=True).stdout
-    sys.stdout.write(render(list(reserved_regions(text)), a.ram_gib))
+    if not (a.dtb and a.live_fdt):
+        p.error("LINUX_DTB and LIVE_FDT are required")
+
+    def decompile(path):
+        return subprocess.run([a.dtc, "-q", "-I", "dtb", "-O", "dts", path],
+                              check=True, capture_output=True, text=True).stdout
+    sys.stdout.write(render(list(reserved_regions(decompile(a.dtb))), largest_ddr_run(decompile(a.live_fdt))))
 
 
 if __name__ == "__main__":

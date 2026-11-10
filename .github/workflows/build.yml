@@ -31,6 +31,7 @@ jobs:
         run: |
           python3 scripts/gen-board-dts.py --selftest
           python3 scripts/check-memory-map.py --selftest
+          python3 scripts/stock-memory-map.py --selftest
       - name: UEFI memory map vs board DTS
         run: python3 scripts/check-memory-map.py
       - name: board DTS compiles against the pinned SoC DTSI
