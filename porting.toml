@@ -14,7 +14,7 @@ paths = ["board.toml", "feeds.toml", "configs/**", ".gitmodules", ".github/**", 
 inputs = ["SM8650 shared support from loolooc/UniXNU-sm8650-common (pinned commit); arm64 iPadOS 17.7.11 profile as on houji and caihong."]
 configuration = ["board.toml: soc_source sm8650, os_profile ipados-17.7.11-21H461, defconfig tb710fu_defconfig (meizu21 values), payload 64 MiB, owned_memory_size 0x80000000."]
 procedure = ["./unixnu defconfig tb710fu_defconfig -D ../UniXNU-tb710fu; ./unixnu fetch; ./unixnu status --json; CI build.yml kernel job on macos-26."]
-findings = ["The configuration resolves and the XNU kernel (xnu-10063.141.1 with the SM8650 patch series) builds and prelinks against the iPadOS 17.7.11 kernelcache in about 10 minutes.", "The bootstrap pass ends in an expected link error (mockfs symbols) before the archives exist; the step result is the final build."]
+findings = ["The configuration resolves and the XNU kernel (xnu-10063.141.1 with the SM8650 patch series) builds and prelinks against the iPadOS 17.7.11 kernelcache in about 10 minutes.", "The bootstrap pass ends in an expected link error (mockfs symbols) before the archives exist; the step result is the final build.", "payload.panic_screen = true (no UART on the tablet); CI runs the AVB selftest and syntax-checks every script."]
 completion = ["All source pins resolve; every selected component has a record; status shows the intended overrides and patch order."]
 limits = ["macOS needs a separate OS profile (macOS-ForSheng approach); no SM8650 macOS profile exists."]
 next_action = ["Boot the images on the unlocked device; switch the OS profile after storage and display work."]
@@ -30,7 +30,7 @@ paths = ["proprietary-files.txt", "uefi/**", "scripts/dump-firmware.sh", "script
 inputs = ["Device partitions dumped read-only over adb (uefi_a, xbl_a, xbl_config_a, abl_a, imagefv_a, uefisecapp_a, vendor_boot_a, boot_a, dtbo_a) with sizes checked against the block devices.", "uefi_a: ELF with one FV, BOOT.MXF.2.1-02000-LANAI-1; 100 DXE INFs extracted with UEFIReader (duplicate Ebl renamed instead of aborting)."]
 configuration = ["uefi/Platforms/Lenovo/tb710fuPkg from Mu-Silicium giulia (SM8650, LanaiPkg); Lenovo SMBIOS; framebuffer 3200x2000 (mainline NT36532 panel); SOC_TYPE only selects SMBIOS strings.", "UniXNU.inf, UniXNUDxe, UniXNURamDiskDxe, DarwinBoot in DSC and FDF; UniXNULib and FdtLib mapped; built on UniXNU/uefi-sheng for the SEC FDT handoff."]
 procedure = ["UEFIReader uefi_a.img tb710fu; copy uefi/ over uefi-sheng; ./unixnu build firmware --uefi ../uefi-tb710fu."]
-findings = ["The giulia references resolve against the TB710FU blobs except OplusProject and OnePlus panel XMLs, which were dropped.", "uefiplat.cfg matches giulia's configuration map except EnableDisplayThread/EnableDisplayImageFv (kept 0 as in Silicium).", "SILICIUM_UEFI.fd builds at exactly 0x300000 with all four UniXNU modules (WSL, clang 18)."]
+findings = ["The giulia references resolve against the TB710FU blobs except OplusProject and OnePlus panel XMLs, which were dropped.", "uefiplat.cfg matches giulia's configuration map except EnableDisplayThread/EnableDisplayImageFv (kept 0 as in Silicium).", "SILICIUM_UEFI.fd builds at exactly 0x300000 with all four UniXNU modules (WSL, clang 18).", "scripts/dump-firmware.sh also dumps vbmeta and takes SLOT=_b for the inactive slot, the inputs of scripts/sign-images.sh."]
 completion = ["Firmware image builds, enters UniXNU, publishes the framebuffer and preserves the documented memory reservations."]
 limits = ["Not booted: the bootloader is still locked. Firmware blobs are not redistributed."]
 next_action = ["fastboot boot the image on slot b after unlocking; check the UniXNU menu and the payload line."]
@@ -170,16 +170,17 @@ evidence = []
 id = "packaging"
 status = "implemented"
 components = []
-paths = ["scripts/*payload*", "scripts/*image*", "scripts/*flash*", "patches/**", "package/Kit.toml"]
-inputs = ["Stock boot_a: header v4, ramdisk 0 (GKI). Stock vendor_boot_a: header v4, ramdisk at 0x1000000, DTB 0x317e5d bytes at 0x1f00000."]
+paths = ["scripts/*payload*", "scripts/*image*", "scripts/*flash*", "scripts/restore-*", "scripts/avb/**", "patches/**", "package/Kit.toml"]
+inputs = ["Stock boot_a: header v4, ramdisk 0 (GKI). Stock vendor_boot_a: header v4, ramdisk at 0x1000000, DTB 0x317e5d bytes at 0x1f00000.", "Bootloader stays locked (LTBox root). Stock vbmeta is signed with the AOSP testkey (2597c218...); it chains boot (rollback location 3) to the testkey and carries a hash descriptor for vendor_boot."]
 configuration = ["Payload in vendor_boot with --ramdisk-addr 0x2400000; boot.img with --ramdisk none and the live FDT as firmware DTB."]
 procedure = ["./unixnu build payload; ./unixnu vendor_boot --stock vendor_boot_a.img --ramdisk payload.img --ramdisk-addr 0x2400000; ./unixnu bootimg --uefi ../uefi-tb710fu --dtb live-fdt.dtb --ramdisk none."]
-findings = ["boot.img 2228224 bytes; vendor_boot.img 100663296 bytes (the partition size) with the 64 MiB payload; the payload holds kernel.macho and kernel.macho.adt, no trust cache or Data seed yet."]
-completion = ["The image starts from fastboot, the menu lists the xnu entry and DarwinBoot hands off."]
-limits = ["Not booted. The first test uses slot b and leaves Android on slot a."]
-next_action = ["After unlocking: fastboot flash vendor_boot_b, set_active b, fastboot boot boot.img."]
+findings = ["boot.img 2228224 bytes; vendor_boot.img 100663296 bytes (the partition size) with the 64 MiB payload; the payload holds kernel.macho and kernel.macho.adt, no trust cache or Data seed yet.", "A locked bootloader refuses fastboot boot and flash, so the images are signed for the testkey path and written to slot b from rooted Android (LTBox EDL partition writes are the recovery path).", "scripts/avb/avbsign.py rehash recomputes vbmeta hash descriptors; on the stock vbmeta the init_boot descriptor equals sha256(salt + init_boot[:size]), and the rehashed vendor_boot descriptor (70365184 bytes) matches the built image."]
+completion = ["The signed images boot from slot b, the menu lists the xnu entry and DarwinBoot hands off."]
+limits = ["Not booted. vbmeta_b, boot_b and vendor_boot_b of this device are not dumped yet; vendor_boot must be rebuilt from vendor_boot_b before signing."]
+next_action = ["Dump slot b, rebuild vendor_boot from vendor_boot_b, scripts/sign-images.sh, scripts/flash-slot-b.sh --activate."]
 evidence = [
-  { kind = "source", reference = "README.md", result = "build and test commands" }
+  { kind = "source", reference = "README.md", result = "build, signing and test commands" },
+  { kind = "source", reference = "scripts/avb/avbsign.py", result = "selftest covers footer, rekey and rehash" }
 ]
 
 [[area]]

@@ -10,7 +10,7 @@ Lenovo Xiaoxin Pad Pro GT(TB710FU, SM8650)에 [UniXNU](https://github.com/UniXNU
 ## 부팅 체인
 
 ```
-ABL(언락) --fastboot boot--> BootShim + Mu-Silicium UEFI --> UniXNU.efi --> DarwinBoot --> XNU(EL1, 자체 빌드) --> IPSW 유저랜드
+ABL(잠김, testkey vbmeta) --슬롯 b boot/vendor_boot--> BootShim + Mu-Silicium UEFI --> UniXNU.efi --> DarwinBoot --> XNU(EL1, 자체 빌드) --> IPSW 유저랜드
 ```
 
 Gunyah가 EL2를 갖고 있어서 XNU는 EL1에서 동작한다. Apple 커널캐시 대신 공개 XNU 소스를 패치해서 빌드한다.
@@ -23,7 +23,7 @@ Gunyah가 EL2를 갖고 있어서 XNU는 EL1에서 동작한다. Apple 커널캐
 | 1 | UEFI: 기기 `uefi_a`에서 추출한 Qualcomm DXE(UEFIReader) + 스톡 메모리 맵(`xbl_config`) + UniXNU/DarwinBoot 통합 | ✅ `SILICIUM_UEFI.fd` 0x300000 빌드 (WSL) |
 | 1b | 페이로드(64 MiB FAT) → `vendor_boot`(GKI라 boot에 ramdisk 없음), `boot.img` | ✅ 빌드, 기기 미검증 |
 | 2 | XNU 커널 빌드 (GitHub macOS 러너) | ✅ xnu-10063.141.1 + SM8650 패치, iPadOS 17.7.11 커널캐시로 prelink (약 10분) |
-| 3 | `fastboot boot`로 UEFI 메뉴 → DarwinBoot → 커널 로그 화면 | ⏳ 부트로더 언락 후 |
+| 3 | 슬롯 b로 서명 이미지 부팅 → UEFI 메뉴 → DarwinBoot → 커널 로그 화면 | 🟡 서명·플래시 스크립트 완료, 슬롯 b 덤프와 기기 테스트 대기 |
 | 4 | UFS 루트 마운트, launchd | ⏳ |
 | 5 | 디스플레이·터치(NT36532 / Novatek SPI) | ⏳ |
 | 6 | OS 프로필을 macOS 26.5로 전환 ([macOS-ForSheng](https://github.com/CrossDarwin/macOS-ForSheng) 방식) | ⏳ |
@@ -32,7 +32,7 @@ Gunyah가 EL2를 갖고 있어서 XNU는 EL1에서 동작한다. Apple 커널캐
 
 ## 기기에서 받아야 할 것
 
-부트로더 언락 전에 Android(루팅) 상태에서 받는다. 저장소에는 올리지 않는다.
+Android(LTBox 루팅) 상태에서 받는다. 저장소에는 올리지 않는다.
 
 ```bash
 scripts/dump-firmware.sh   # uefi/xbl/abl/imagefv/vendor_boot 등 + device-facts.txt
@@ -67,26 +67,42 @@ cd ../UniXNU
 cd ../UniXNU
 ./unixnu build firmware --uefi ../uefi-tb710fu
 UNIXNU_UNIQUE_CHIP_ID=<soc0 serial hex> ./unixnu build payload
-./unixnu vendor_boot --stock ../UniXNU-tb710fu/firmware-dump/vendor_boot_a.img \
+./unixnu vendor_boot --stock ../UniXNU-tb710fu/firmware-dump/vendor_boot_b.img \
   --ramdisk out/tb710fu/*/tb710fu/payload/payload.img --ramdisk-addr 0x2400000
 ./unixnu bootimg --uefi ../uefi-tb710fu --dtb ../UniXNU-tb710fu/firmware-dump/live-fdt.dtb --ramdisk none
 ```
 
-## 기기 테스트 (부트로더 언락 후)
+## 기기 테스트 (잠긴 부트로더, LTBox 루팅 상태)
 
-Android는 슬롯 a에 그대로 두고 슬롯 b의 `vendor_boot`만 바꾼다. `boot.img`는 `fastboot boot`로 RAM에서만 실행한다.
+잠긴 부트로더는 `fastboot boot`/`flash`를 거부한다. 대신 LTBox와 같은 testkey 경로를 쓴다.
+스톡 vbmeta가 AOSP testkey(`2597c218…`)로 서명돼 있어서 다시 서명할 수 있다.
+
+- `boot`: vbmeta에서 testkey로 chain(롤백 위치 3) → testkey 해시 푸터
+- `vendor_boot`: vbmeta 안의 해시 descriptor → 다시 계산한 뒤 vbmeta를 testkey로 재서명 (`scripts/avb/avbsign.py rehash`)
+
+Android는 슬롯 a에 그대로 두고 슬롯 b만 바꾼다.
 
 ```bash
-fastboot flash vendor_boot_b images/vendor_boot.img
-fastboot set_active b
-fastboot reboot bootloader
-fastboot boot images/boot.img
-# 되돌리기
-fastboot set_active a && fastboot reboot
+SLOT=_b scripts/dump-firmware.sh firmware-dump   # vbmeta_b, boot_b, vendor_boot_b 덤프 (읽기만)
+# vendor_boot는 vendor_boot_b.img를 --stock으로 다시 만든 뒤
+scripts/sign-images.sh firmware-dump images      # boot-signed.img, vbmeta-signed.img
+scripts/flash-slot-b.sh --activate images         # 슬롯 b 원본 백업 → 쓰기 → 읽어서 확인 → 슬롯 b 활성화 → 재부팅
 ```
 
-화면으로 확인할 순서: UniXNU 메뉴 → (DarwinBoot) 화면 위쪽 1/16 초록 띠 = 커널 진입 직전까지 성공 → 커널 로그(`-v`).
-메뉴에 `xnu` 항목이 없으면 `payload: initrd ... fs <n>` 줄을 확인한다(`fs 0` = FAT 인식 실패).
+되돌리기:
+- 슬롯 b가 몇 번 부팅에 실패하면 ABL이 슬롯 a(Android)로 돌아간다.
+- Android에서 `scripts/restore-slot-b.sh`를 실행하면 슬롯 b가 원본으로 돌아간다.
+- Android가 뜨지 않으면 LTBox 고급 도구의 **EDL 파티션 쓰기**로 `firmware-dump/slot-b-backup/*.img`를 되돌린다.
+
+## 부팅 로그 보기 (UART 없음)
+
+| 단계 | 방법 |
+|---|---|
+| UEFI | DEBUG 빌드라서 Silicium `FrameBufferSerialPortLib`가 UEFI 디버그 로그를 화면에 바로 그린다. 사진으로 남긴다 |
+| UniXNU 메뉴 | 메뉴의 `payload: initrd ... fs <n>` 줄. `fs 0`이면 FAT 인식 실패이고, `xnu` 항목이 없으면 페이로드를 못 찾은 것 |
+| DarwinBoot → 커널 | 커널로 넘어가기 직전에 화면 위쪽 1/16이 초록색으로 칠해진다 = 커널 진입 직전까지 성공 |
+| XNU | `-v`로 커널 로그가 화면에 출력되고, `panic_screen = true`로 패닉 문자열도 화면에 그린다. 사진으로 남긴다 |
+| 저장되는 로그 | UFS가 동작한 뒤 예약 영역에 커널 로그를 쓰고 Android(root)에서 `dd`로 읽는다 (아직 미구현) |
 
 ## 메모
 

@@ -2,14 +2,15 @@
 # Copy the TB710FU firmware inputs off the tablet (read-only on the device).
 # Needs: Android booted, adb authorized, root (KernelSU/Magisk) for `su`.
 # usage: scripts/dump-firmware.sh [OUT_DIR=firmware-dump]
+#        SLOT=_b scripts/dump-firmware.sh   (the inactive slot: inputs of scripts/sign-images.sh)
 set -euo pipefail
 OUT=${1:-firmware-dump}
-SLOT_PARTS="uefi xbl xbl_config abl imagefv uefisecapp vendor_boot boot dtbo"
+SLOT_PARTS="uefi xbl xbl_config abl imagefv uefisecapp vendor_boot boot dtbo vbmeta"
 mkdir -p "$OUT"
 
 adb get-state >/dev/null
-slot=$(adb shell getprop ro.boot.slot_suffix | tr -d '\r')
-echo "active slot: ${slot:-none}"
+slot=${SLOT:-$(adb shell getprop ro.boot.slot_suffix | tr -d '\r')}
+echo "slot: ${slot:-none}"
 
 for p in $SLOT_PARTS; do
   name="$p$slot"

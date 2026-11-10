@@ -59,6 +59,8 @@ size_mib = 64
 loader = "firmware"
 title = "UniXNU TB710FU"
 kernel_args = ["-v", "serial=3"]
+# No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
+panic_screen = true
 
 [package]
 unixnu = "../UniXNU"

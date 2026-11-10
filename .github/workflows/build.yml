@@ -32,6 +32,8 @@ jobs:
           python3 scripts/gen-board-dts.py --selftest
           python3 scripts/check-memory-map.py --selftest
           python3 scripts/stock-memory-map.py --selftest
+          python3 -I scripts/avb/avbsign.py selftest scripts/avb/testkey_rsa4096.pem
+          for s in scripts/*.sh; do bash -n "$s"; done
       - name: UEFI memory map vs board DTS
         run: python3 scripts/check-memory-map.py
       - name: board DTS compiles against the pinned SoC DTSI
