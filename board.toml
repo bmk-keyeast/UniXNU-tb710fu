@@ -58,7 +58,11 @@ volume = "TB710FUESP"
 size_mib = 64
 loader = "firmware"
 title = "UniXNU TB710FU"
-kernel_args = ["-v", "serial=3"]
+# ramoops: mirror the console into the stock Android ramoops console zone (DT ramoops_region
+# 0xac300000: dmesg 0x40000, then console 0x40000 at 0xac340000). After a panic it waits
+# ramoops_panic_delay (15 s, photograph the screen) and resets; a hang resets after 120 s.
+# Android then shows the log in /sys/fs/pstore/console-ramoops-0 (patches/xnu/tb710fu-ramoops-console.patch).
+kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"]
 # No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
 panic_screen = true
 
