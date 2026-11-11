@@ -28,6 +28,14 @@
   USE_CUSTOM_DISPLAY_DRIVER      = 0
 
   #
+  # 0 = Mu drivers only. ABL's display keeps scanning out and SimpleFbDxe draws on it.
+  # 1 = also load the stock Qualcomm drivers (SMEM, clocks, RPMh, UFS, USB, ...).
+  #     First device boot (2026-11-11): the panel went black with the backlight on
+  #     while they loaded, as on UniXNU's sheng (SM8550) reference.
+  #
+  TB710FU_VENDOR_HW              = 0
+
+  #
   # 0 = SM8650-AA
   # 1 = SM8650-Q-AA
   # 2 = SM8650-AB
@@ -39,6 +47,10 @@
   SOC_TYPE                       = 3
 
 !include LanaiPkg/LanaiPkg.dsc.inc
+
+!if ($(USE_CUSTOM_DISPLAY_DRIVER) == 1) && ($(TB710FU_VENDOR_HW) == 0)
+  !error The stock DisplayDxe chain needs TB710FU_VENDOR_HW = 1
+!endif
 
 [PcdsFixedAtBuild]
   #
@@ -75,6 +87,11 @@
   # Platform PEI
   #
   gQcomPkgTokenSpaceGuid.PcdPlatformType|"LA"
+!if $(TB710FU_VENDOR_HW) == 0
+  # sheng: PlatformPeim otherwise scans the stock UEFI's leftover FD window for XBL HOBs
+  # that only the vendor drivers read.
+  gQcomPkgTokenSpaceGuid.PcdBuildXblHobs|FALSE
+!endif
 
 [LibraryClasses]
   #
