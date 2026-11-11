@@ -3,7 +3,8 @@
 # Slot b = slot a's AVB chain + these three files; scripts/flash-slot-b.sh copies the rest of the
 # chain (vbmeta_system, dtbo, init_boot, recovery) from slot a. The stock slot-b chain is mixed
 # firmware whose dtbo/vendor_boot hashes do not match vbmeta_b, so it is not used as a template.
-#   boot        : chained in vbmeta_a (rollback location 3) -> testkey hash footer
+#   boot        : chained in vbmeta_a (rollback location 3) -> testkey hash footer carrying boot_a's
+#                 os_version/security_patch properties (ABL refuses a boot without them)
 #   vendor_boot : hash descriptor inside vbmeta_a -> recompute it, re-sign vbmeta with the testkey
 # usage: scripts/sign-images.sh [DUMP_DIR=firmware-dump] [IMAGES_DIR=images]
 #   DUMP_DIR holds the stock slot-a dumps: vbmeta_a.img, boot_a.img (scripts/dump-firmware.sh)
@@ -30,7 +31,7 @@ print(v["pubkey_sha1"], c[0] if c else "none", b["rollback_index"])' "$AVB" "$DU
 
 mkdir -p "$OUT"
 cp "$IMG/boot.img" "$OUT/boot_b.img"
-$py $AVB/avbsign.py footer "$OUT/boot_b.img" "$(stat -c %s "$DUMP/boot_a.img")" "$ri" "$KEY"
+$py $AVB/avbsign.py footer "$OUT/boot_b.img" "$(stat -c %s "$DUMP/boot_a.img")" "$ri" "$KEY" boot --props-from "$DUMP/boot_a.img"
 cp "$IMG/vendor_boot.img" "$OUT/vendor_boot_b.img"
 
 vb_in="$DUMP/vbmeta_a.img"
@@ -45,5 +46,7 @@ for f in boot_b vbmeta_b; do
   [ "$($py $AVB/avbsign.py verify "$OUT/$f.img" "$KEY")" = OK ] || { echo "$f.img verify failed" >&2; exit 1; }
 done
 [ "$(stat -c %s "$OUT/vbmeta_b.img")" = "$(stat -c %s "$DUMP/vbmeta_a.img")" ]
+$py $AVB/avbinfo.py "$OUT/boot_b.img" | grep -q "key=com.android.build.boot.os_version value=[1-9]" ||
+  { echo "boot_b.img has no boot os_version property: ABL would refuse it" >&2; exit 1; }
 (cd "$OUT" && sha256sum boot_b.img vendor_boot_b.img vbmeta_b.img > SHA256SUMS)
 echo "signed: $OUT (boot rollback index $ri, vendor_boot rehashed in vbmeta_a)"

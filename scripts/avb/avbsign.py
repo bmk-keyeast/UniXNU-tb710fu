@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Pure-Python AVB signing for TB710FU (SHA256_RSA4096, PKCS#1 v1.5). No deps.
 
-  avbsign.py footer IMAGE PARTITION_SIZE ROLLBACK_INDEX KEY.pem [NAME]
-      append hash descriptor vbmeta + AVBf footer, pad IMAGE to PARTITION_SIZE
+  avbsign.py footer IMAGE PARTITION_SIZE ROLLBACK_INDEX KEY.pem [NAME] [--props-from STOCK_IMAGE]
+      append hash descriptor vbmeta + AVBf footer, pad IMAGE to PARTITION_SIZE;
+      --props-from copies the stock image's property descriptors (os_version, security_patch)
   avbsign.py rekey STOCK_VBMETA OUT KEY.pem PARTITION[,PARTITION...]
       copy vbmeta, point the named chain descriptors at KEY's public key, re-sign with KEY
   avbsign.py rehash STOCK_VBMETA OUT KEY.pem PARTITION=IMAGE[,PARTITION=IMAGE...]
@@ -155,14 +156,25 @@ def rehash(stock, out, keypath, images):
     open(out, "wb").write(blob + bytes(max(0, len(data) - len(blob))))
 
 
-def footer(image, psize, rollback_index, keypath, name="boot"):
+def stock_properties(path):
+    """Property descriptors (raw) of an image's vbmeta, e.g. com.android.build.boot.os_version."""
+    blob, _ = avbinfo.vbmeta_blob(open(path, "rb").read())
+    return b"".join(descriptor(0, body) for tag, body in raw_descriptors(blob)[1] if tag == 0)
+
+
+def footer(image, psize, rollback_index, keypath, name="boot", props_from=None):
+    """props_from: copy the stock image's property descriptors. Qualcomm ABL reads
+    com.android.build.boot.os_version / security_patch from the boot vbmeta and, without them,
+    falls back to the header os_version; GKI v4 headers carry 0 there -> boot refused
+    (found by the tb710fu-arch-linux session in the SM8650 ABL source, VerifiedBoot.c)."""
     key = load_key(keypath)
     img = open(image, "rb").read()
     salt = os.urandom(32)
     digest = hashlib.sha256(salt + img).digest()
     hd = struct.pack(">Q32sIIII", len(img), b"sha256", len(name), 32, 32, 0) + bytes(60)
     hd += name.encode() + salt + digest
-    vb = make_vbmeta(descriptor(2, hd), key, rollback_index=rollback_index)
+    descs = descriptor(2, hd) + (stock_properties(props_from) if props_from else b"")
+    vb = make_vbmeta(descs, key, rollback_index=rollback_index)
     body = pad(img, 4096)
     foot = struct.pack(">4sIIQQQ", b"AVBf", 1, 0, len(img), len(body), len(vb)).ljust(64, b"\0")
     total = len(body) + len(pad(vb, 4096)) + 4096
@@ -202,6 +214,20 @@ def selftest(keypath):
     v = avbinfo.parse(avbinfo.vbmeta_blob(open(img, "rb").read())[0])
     assert v["rollback_index"] == 1736035200 and v["pubkey_sha1"] == hashlib.sha1(pk).hexdigest()
     assert verify(img, key[0]), "footer signature/digest"
+    # --props-from: the stock property descriptors ride along into the new boot vbmeta
+    img2 = os.path.join(d, "boot2.img")
+    open(img2, "wb").write(b"ANDROID!" + os.urandom(5000))
+    footer(img2, 1 << 20, 1736035200, keypath, props_from=img)  # img has no properties yet
+    assert not [x for x in avbinfo.parse(avbinfo.vbmeta_blob(open(img2, "rb").read())[0])["descriptors"] if x["type"] == "property"]
+    k, v = b"com.android.build.boot.os_version", b"14"
+    hd = struct.pack(">QQ", len(k), len(v)) + k + bytes(1) + v + bytes(1)
+    prop_src = os.path.join(d, "propsrc.img")
+    open(prop_src, "wb").write(make_vbmeta(descriptor(0, hd), key) + bytes(4096))
+    open(img2, "wb").write(b"ANDROID!" + os.urandom(5000))
+    footer(img2, 1 << 20, 1736035200, keypath, props_from=prop_src)
+    props = [x for x in avbinfo.parse(avbinfo.vbmeta_blob(open(img2, "rb").read())[0])["descriptors"] if x["type"] == "property"]
+    assert props and props[0]["key"] == "com.android.build.boot.os_version" and props[0]["value"] == "14", props
+    assert verify(img2, key[0]), "footer with properties"
     stock = os.path.join(d, "vbmeta.img")
     other = bytes(8) + bytes(1032)  # fake 2048-bit-sized key blob
     ch = struct.pack(">IIII", 3, 4, len(other), 0) + bytes(60) + b"boot" + other
@@ -233,7 +259,9 @@ def selftest(keypath):
 if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
     if cmd == "footer":
-        footer(a[0], int(a[1]), int(a[2]), a[3], *(a[4:5]))
+        props = a[a.index("--props-from") + 1] if "--props-from" in a else None
+        rest = [x for x in a[4:] if x != "--props-from" and x != props]
+        footer(a[0], int(a[1]), int(a[2]), a[3], *(rest[:1]), props_from=props)
     elif cmd == "rekey":
         rekey(a[0], a[1], a[2], a[3].split(","))
     elif cmd == "rehash":
