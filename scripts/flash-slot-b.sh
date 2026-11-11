@@ -3,8 +3,8 @@
 # active slot is not changed: switch slots yourself.
 # Pushes DIR and scripts/android/flash-slot-b.sh (from tb710fu-arch-linux) to the tablet, which
 # writes <part>_b.img for every file in DIR and copies the rest of slot a's AVB chain
-# (vbmeta vbmeta_system dtbo vendor_boot init_boot recovery boot) to slot b.
-# The previous slot b (all seven partitions) is pulled to firmware-dump/slot-b-backup-<time>/.
+# (vbmeta vbmeta_system pvmfw dtbo vendor_boot init_boot recovery boot) to slot b.
+# The previous slot b (all eight partitions) is pulled to firmware-dump/slot-b-backup-<time>/.
 #   scripts/flash-slot-b.sh [DIR=images/slot-b]            dry run (checks only)
 #   scripts/flash-slot-b.sh [DIR=images/slot-b] --write    write
 # Restore: scripts/flash-slot-b.sh firmware-dump/slot-b-backup-<time> --write
@@ -25,7 +25,7 @@ root "sh $T/flash-slot-b.sh $T/img $WRITE"
 if [ "$WRITE" = --write ]; then
   bak=firmware-dump/slot-b-backup-$(date +%Y%m%d-%H%M%S)
   mkdir -p "$bak"
-  for p in vbmeta vbmeta_system dtbo vendor_boot init_boot recovery boot; do
+  for p in vbmeta vbmeta_system pvmfw dtbo vendor_boot init_boot recovery boot; do
     f=$T/img/backup-slot-b/${p}_b.img
     adb exec-out "su -c 'cat $f'" > "$bak/${p}_b.img"
     [ "$(root "sha256sum $f" | cut -d' ' -f1)" = "$(sha256sum "$bak/${p}_b.img" | cut -d' ' -f1)" ] ||

@@ -82,7 +82,8 @@ UNIXNU_UNIQUE_CHIP_ID=<soc0 serial hex> ./unixnu build payload
 
 순정 슬롯 b는 펌웨어가 섞여 있어서 vbmeta_b의 dtbo/vendor_boot 해시가 슬롯 b 파티션과 맞지 않는다.
 그래서 [tb710fu-arch-linux](https://github.com/bmk-mikufan/tb710fu-arch-linux)와 같은 방식으로
-**슬롯 b = 슬롯 a의 AVB 체인(vbmeta_system, dtbo, init_boot, recovery) + UniXNU boot/vendor_boot + 재서명한 vbmeta_a**로 만든다.
+**슬롯 b = 슬롯 a의 AVB 체인(vbmeta_system, pvmfw, dtbo, init_boot, recovery) + UniXNU boot/vendor_boot + 재서명한 vbmeta_a**로 만든다.
+pvmfw가 들어 있으면 ABL이 pvmfw도 검증한다(해시는 vbmeta_system에 있음). 옛 pvmfw_b를 두면 검증에 실패해서 슬롯 b가 거부된다.
 Android는 슬롯 a에 그대로 두고, 활성 슬롯은 바꾸지 않는다(직접 전환).
 
 ```bash
@@ -90,7 +91,7 @@ scripts/dump-firmware.sh firmware-dump            # 슬롯 a: vbmeta_a, boot_a, 
 # vendor_boot는 vendor_boot_a.img를 --stock으로 다시 만든 뒤
 scripts/sign-images.sh firmware-dump images      # images/slot-b/{boot_b,vendor_boot_b,vbmeta_b}.img
 scripts/flash-slot-b.sh                           # 미리 점검만 (dry run)
-scripts/flash-slot-b.sh images/slot-b --write     # 기기에서 쓰기 + cmp 확인, 이전 슬롯 b 7개 파티션을 firmware-dump/slot-b-backup-<시각>/으로 받아옴
+scripts/flash-slot-b.sh images/slot-b --write     # 기기에서 쓰기 + cmp 확인, 이전 슬롯 b 8개 파티션을 firmware-dump/slot-b-backup-<시각>/으로 받아옴
 ```
 
 쓰기는 기기 안에서 `scripts/android/flash-slot-b.sh`(tb710fu-arch-linux에서 가져옴)가 한다.

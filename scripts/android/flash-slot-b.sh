@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# From bmk-mikufan/tb710fu-arch-linux android/flash-slot-b.sh (b8e4398); run via scripts/flash-slot-b.sh.
+# From bmk-mikufan/tb710fu-arch-linux android/flash-slot-b.sh (pvmfw added 2026-11-11); run via scripts/flash-slot-b.sh.
 # Prepare slot b from rooted Android (no EDL, no fastboot). Slot a is never written.
 #
 #   sh flash-slot-b.sh DIR            dry run: checks only
@@ -12,7 +12,8 @@ set -e
 DIR="${1:?usage: flash-slot-b.sh DIR [--write]}"
 WRITE="$2"
 B=/dev/block/by-name
-PARTS="vbmeta vbmeta_system dtbo vendor_boot init_boot recovery boot"
+# everything ABL verifies for the slot: pvmfw is requested too (hash descriptor in vbmeta_system)
+PARTS="vbmeta vbmeta_system pvmfw dtbo vendor_boot init_boot recovery boot"
 
 [ "$(id -u)" = 0 ] || { echo "run as root"; exit 1; }
 [ "$(getprop ro.boot.slot_suffix)" = _a ] || { echo "current slot is not _a - refusing"; exit 1; }
