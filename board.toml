@@ -98,7 +98,11 @@ kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"
 # No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
 # Off while the reset probe is on: patch-xnu-entry-probe.py exits 1 with both (the panic screen
 # fills the padding the stage-3 cave uses), and a hang before the MMU draws no panic anyway.
-panic_screen = true
+# Off: the panic screen parks the CPU without a reset, so a forced power-off then lost the
+# ramoops RAM (AMFI panic, 2026-11-12). The normal panic path prints to the console (screen with
+# -v, and the ramoops zone) and tb710fu_ramoops_panic_reset resets after ramoops_panic_delay,
+# also from panic_spin_forever (panics before the debugger is up).
+panic_screen = false
 
 [package]
 unixnu = "../UniXNU"
