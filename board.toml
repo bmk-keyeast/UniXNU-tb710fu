@@ -63,7 +63,17 @@ title = "UniXNU TB710FU"
 # ramoops_panic_delay (15 s, photograph the screen) and resets; a hang resets after 120 s.
 # Android then shows the log in /sys/fs/pstore/console-ramoops-0 (patches/xnu/tb710fu-ramoops-console.patch).
 kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"]
+# Entry probe (patch-xnu-entry-probe.py): first boot (2026-11-11) showed the green, blue and
+# magenta bars and hung. Bisect on the device (2026-11-12): stage 3 (6 s after the MMU is on)
+# resets, so the MMU enable passes; a reset before the call to _arm_vm_init does not, so the hang
+# is between the MMU enable and arm_vm_init. Off for a full boot with the cut-chip CPU list;
+# to keep bisecting set panic_screen = false and, e.g.:
+#   entry_probe_reset_delay = 6
+#   entry_probe_reset_after = "_ml_parse_cpu_topology"
+#   entry_probe_reset_before = true
 # No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
+# Off while the reset probe is on: patch-xnu-entry-probe.py exits 1 with both (the panic screen
+# fills the padding the stage-3 cave uses), and a hang before the MMU draws no panic anyway.
 panic_screen = true
 
 [package]

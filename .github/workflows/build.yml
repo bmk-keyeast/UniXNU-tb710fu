@@ -33,6 +33,7 @@ jobs:
           python3 scripts/check-memory-map.py --selftest
           python3 scripts/stock-memory-map.py --selftest
           python3 -I scripts/avb/avbsign.py selftest scripts/avb/testkey_rsa4096.pem
+          python3 -I scripts/slot-b-retry.py --selftest
           for s in scripts/*.sh; do bash -n "$s"; done
           bash tests/run-ramoops-test.sh
       - name: UEFI memory map vs board DTS

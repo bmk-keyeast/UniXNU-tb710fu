@@ -22,6 +22,8 @@ REG = re.compile(r"^\t\t\treg = <((?:0x[0-9a-f]+ ?)+)>;$")
 
 # Regions of the stock UEFI memory map (xbl_config, scripts/stock-memory-map.py) that
 # mainline Linux does not reserve but the display engine owns while the ABL splash scans out.
+# Cut SM8650: ABL marks these cores status = "fail" in the live FDT (firmware-dump/live-fdt.dtb).
+FUSED_CPUS = {1, 2}
 EXTRA = [("display-demura", 0xA3600000, 0x2B00000), ("display-reserved", 0xD5100000, 0x2B00000)]
 
 
@@ -105,8 +107,11 @@ def render(regions, window):
         "};",
         "",
         "// SM8650 CPU topology: 2x A520 (E), 5x A720 (P), 1x X4 (P) -- see sm8650.dtsi.",
+        "// TB710FU carries a cut SM8650: the live FDT marks cpu@100 (A520) and cpu@200 (A720)",
+        '// status = "fail", so XNU gets 6 CPUs (1 E + 5 P).',
     ]
-    out += [f'&cpu{i} {{ unixnu,cluster-type = "{"E" if i < 2 else "P"}"; }};' for i in range(8)]
+    out += [f'&cpu{i} {{ unixnu,cluster-type = "{"E" if i < 2 else "P"}";'
+            + (' status = "disabled";' if i in FUSED_CPUS else '') + ' };' for i in range(8)]
     out += ['&ufs { status = "okay"; };', '&ufsphy { status = "okay"; };', ""]
     return "\n".join(out)
 
