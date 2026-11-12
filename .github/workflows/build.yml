@@ -85,6 +85,11 @@ jobs:
           set -o pipefail
           ./unixnu build kernel -j "$(sysctl -n hw.ncpu)" 2>&1 | tee ../kernel.log
           test -s out/tb710fu/*/*/kernel/kernel.macho
+          # build-platform-power.py links a no-op sheng_pmgr_run until a reference kernel exists:
+          # the second pass links the PMGR bridge against the first pass's kernel.
+          ./unixnu build kernel -j "$(sysctl -n hw.ncpu)" 2>&1 | tee ../kernel-pass2.log
+          grep -q "PMGR bridge: no reference kernel" out/tb710fu/*/*/logs/*platform-power*.log && exit 1 || true
+          nm out/tb710fu/*/*/kernel/kernel.macho | grep -q ShengPlatformPower
       - name: logs
         if: always()
         uses: actions/upload-artifact@v4

@@ -9,5 +9,12 @@ CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 # memory: PE_create_console -> check_for_panic_log took a data abort there (ramoops, 2026-11-12).
 # With this the panic region comes from /pram + /chosen/embedded-panic-log-size, absent here.
 CONFIG_XNU_DT_PANIC_REGION=y
+# The unchanged AMFI panics "AMFI: No PMGR?" (ConfigurationSettings.cpp:235) without an ApplePMGR
+# provider (device, 2026-11-12). SHENG_PMGR links the guarded original-PMGR bridge
+# (package/ShengPlatformPower.cpp, scripts/build-platform-power.py, from UniXNU-tb128fu a9c3863);
+# sheng-pmgr=2 publishes it. It does no hardware power operation. The archive builders of
+# board.toml [kernel] run only with BUILD_ARCHIVES.
+CONFIG_XNU_SHENG_PMGR=y
+CONFIG_XNU_BUILD_ARCHIVES=y
 # CONFIG_XNU_NATIVE_UFS is not set
 # CONFIG_XNU_NATIVE_ADRENO is not set

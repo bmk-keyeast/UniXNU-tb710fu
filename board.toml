@@ -22,6 +22,19 @@ include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot"]
 defconfig = "tb710fu_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8650.config", "os:configs/ipados.config"]
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
+# The arm64 profile's archive plan plus the PMGR bridge (CONFIG_XNU_SHENG_PMGR). The bridge builder needs
+# the previous prelinked kernel as its reference; without one it links a no-op, so CI builds twice.
+archives = [
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "component:ArmDTPlatform",
+  "component:ArmCpu",
+  "component:SoftwareAES",
+  "build-software-aes-bindings.py",
+  "build-mockfs-fixture.py",
+  "build-libpthread-kernel.py",
+  "build-platform-power.py",
+]
 
 [device_tree]
 # Generated: scripts/gen-board-dts.py <mainline sm8650-lenovo-tb710fu.dtb>
@@ -62,7 +75,7 @@ title = "UniXNU TB710FU"
 # 0xac300000: dmesg 0x40000, then console 0x40000 at 0xac340000). After a panic it waits
 # ramoops_panic_delay (15 s, photograph the screen) and resets; a hang resets after 120 s.
 # Android then shows the log in /sys/fs/pstore/console-ramoops-0 (patches/xnu/tb710fu-ramoops-console.patch).
-kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"]
+kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120", "sheng-pmgr=2"]
 # Entry probe (patch-xnu-entry-probe.py): first boot (2026-11-11) showed the green, blue and
 # magenta bars and hung. Bisect on the device (2026-11-12): stage 3 (6 s after the MMU is on)
 # resets, so the MMU enable passes; a reset before the call to _arm_vm_init does not, so the hang
@@ -71,19 +84,21 @@ kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"
 # 2026-11-12: cluster-type fix boots past topology in QEMU; on the device it hangs with no text and
 # no 120 s ramoops reset. Reset 6 s after PE_create_console: a warm PSCI reset keeps the ramoops
 # console (replayed from before arm_vm_init) for Android to read.
-entry_probe_reset_delay = 6
+#   entry_probe_reset_delay = 6
 # After PE_create_console + 6 s: no reset. Now an immediate reset before serial_init (after
 # arm_vm_init and tb710fu_ramoops_init), which needs no timer.
 # Before serial_init: back in Android within a minute (reset; pstore empty: the zone was
 # re-initialised with no text yet). Now immediately before PE_create_console, after the kprintfs.
 # Before PE_create_console: reset, ramoops shows the XNU banner. The delayed (6 s) stage-4 reset
 # does not fire after arm_vm_init, so only immediate resets count. Next: before PE_init_printf.
-entry_probe_reset_after = "_PE_init_printf"
-entry_probe_reset_before = true
+#   entry_probe_reset_after = "_PE_init_printf"
+#   entry_probe_reset_before = true
+# Before PE_init_printf: the ramoops panic text showed the PE_create_console data abort
+# (BCM2837 panic log address); fixed by CONFIG_XNU_DT_PANIC_REGION. Probes off for a full boot.
 # No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
 # Off while the reset probe is on: patch-xnu-entry-probe.py exits 1 with both (the panic screen
 # fills the padding the stage-3 cave uses), and a hang before the MMU draws no panic anyway.
-panic_screen = false
+panic_screen = true
 
 [package]
 unixnu = "../UniXNU"
