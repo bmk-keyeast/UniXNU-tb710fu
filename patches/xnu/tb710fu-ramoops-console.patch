@@ -83,7 +83,7 @@ new file mode 100755
 index 0000000..9da2b9b
 --- /dev/null
 +++ b/osfmk/kern/tb710fu_ramoops.c
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,353 @@
 +// SPDX-License-Identifier: MIT
 +/*
 + * TB710FU: mirror the kernel console into the Linux ramoops "console" zone, so the
@@ -320,13 +320,25 @@ index 0000000..9da2b9b
 +/* Console output before the zone is mapped (arm_vm_init) is replayed into it. */
 +static char early[4096];
 +static uint32_t early_len;
-+static uint32_t panic_delay = 15, reset_after;
++static uint32_t panic_delay = 15, reset_after, reset_cold, selftest;
 +
++/*
++ * PSCI SYSTEM_RESET is a cold reset on Qualcomm: DDR leaves self-refresh and the
++ * zone decays (pstore lost the header block on most XNU resets). Linux reboots warm,
++ * so SYSTEM_RESET2 with SYSTEM_WARM_RESET (type 0) comes first; it returns only when
++ * the firmware lacks it. ramoops_reset_cold=1 keeps the old cold path for comparison.
++ */
 +static void __attribute__((noreturn))
 +psci_system_reset(void)
 +{
++	if (!reset_cold) {
++		register uint64_t w0 __asm__("x0") = 0xC4000012;  /* PSCI SYSTEM_RESET2 (SMC64) */
++		register uint64_t w1 __asm__("x1") = 0;           /* SYSTEM_WARM_RESET */
++		register uint64_t w2 __asm__("x2") = 0;
++		__asm__ volatile ("dsb sy; smc #0" : "+r"(w0), "+r"(w1), "+r"(w2) : : "x3", "memory");
++	}
 +	register uint64_t x0 __asm__("x0") = 0x84000009;  /* PSCI SYSTEM_RESET */
-+	__asm__ volatile ("smc #0" : "+r"(x0) : : "memory");
++	__asm__ volatile ("dsb sy; smc #0" : "+r"(x0) : : "memory");
 +	for (;;) {
 +		__asm__ volatile ("wfe");
 +	}
@@ -356,6 +368,8 @@ index 0000000..9da2b9b
 +	PE_parse_boot_argn("ramoops_ecc", &ecc, sizeof(ecc));
 +	PE_parse_boot_argn("ramoops_panic_delay", &panic_delay, sizeof(panic_delay));
 +	PE_parse_boot_argn("ramoops_reset_after", &reset_after, sizeof(reset_after));
++	PE_parse_boot_argn("ramoops_reset_cold", &reset_cold, sizeof(reset_cold));
++	PE_parse_boot_argn("ramoops_selftest", &selftest, sizeof(selftest));
 +	if (ramoops_zone_open((volatile uint8_t *)ml_io_map((vm_offset_t)pa, size), size, ecc)) {
 +		zone = NULL;
 +		return;
@@ -368,6 +382,16 @@ index 0000000..9da2b9b
 +		ramoops_zone_putc(early[i]);
 +	}
 +	ramoops_zone_flush();
++	if (selftest) {
++		/* ramoops_selftest=1: prove the zone survives this reset type, then reboot at once. */
++		static const char line[] = "ramoops selftest: PSCI reset now (cold=0 tries SYSTEM_RESET2 warm)\n";
++		for (const char *s = line; *s; s++) {
++			ramoops_zone_putc(*s);
++		}
++		ramoops_zone_putc(reset_cold ? '1' : '0');
++		ramoops_zone_putc('\n');
++		psci_system_reset();
++	}
 +}
 +
 +void
