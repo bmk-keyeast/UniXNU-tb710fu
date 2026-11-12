@@ -102,7 +102,12 @@ kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"
 # ramoops RAM (AMFI panic, 2026-11-12). The normal panic path prints to the console (screen with
 # -v, and the ramoops zone) and tb710fu_ramoops_panic_reset resets after ramoops_panic_delay,
 # also from panic_spin_forever (panics before the debugger is up).
-panic_screen = false
+# 2026-11-12 PMGR kernel: green bar only (no probe without panic_screen or a reset), reboot after
+# ~2 min, empty pstore. Reset before bsd_init (in _kernel_bootstrap_thread): reboot within 1 s of the
+# magenta bar, so AMFI/PMGR pass; pstore empty. Reset before PE_create_console: pstore empty as
+# well (the first kernel showed the banner there), so ramoops survival across a reset is unreliable.
+# Now the panic screen again: it draws on the panel and does not depend on RAM retention.
+panic_screen = true
 
 [package]
 unixnu = "../UniXNU"
