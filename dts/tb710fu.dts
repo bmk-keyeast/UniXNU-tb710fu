@@ -66,13 +66,10 @@
 // SM8650 CPU topology: 2x A520 (E), 5x A720 (P), 1x X4 (P) -- see sm8650.dtsi.
 // TB710FU carries a cut SM8650: the live FDT marks cpu@100 (A520) and cpu@200 (A720)
 // status = "fail", so XNU gets 6 CPUs (1 E + 5 P).
-&cpu0 { unixnu,cluster-type = "E"; };
-&cpu1 { unixnu,cluster-type = "E"; status = "disabled"; };
-&cpu2 { unixnu,cluster-type = "P"; status = "disabled"; };
-&cpu3 { unixnu,cluster-type = "P"; };
-&cpu4 { unixnu,cluster-type = "P"; };
-&cpu5 { unixnu,cluster-type = "P"; };
-&cpu6 { unixnu,cluster-type = "P"; };
-&cpu7 { unixnu,cluster-type = "P"; };
+// No unixnu,cluster-type: the BCM2837 kernel (MAX_CPU_CLUSTERS 1, no HAS_CLUSTER) maps a P core
+// to phys_cluster_id 1 and ml_parse_cpu_topology asserts phys_cluster_id <= MAX_CPU_CLUSTER_PHY_ID
+// before any console exists (found in QEMU, 2026-11-12). All CPUs stay one SMP cluster.
+&cpu1 { status = "disabled"; };
+&cpu2 { status = "disabled"; };
 &ufs { status = "okay"; };
 &ufsphy { status = "okay"; };

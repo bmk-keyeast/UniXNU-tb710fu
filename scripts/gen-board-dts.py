@@ -110,8 +110,10 @@ def render(regions, window):
         "// TB710FU carries a cut SM8650: the live FDT marks cpu@100 (A520) and cpu@200 (A720)",
         '// status = "fail", so XNU gets 6 CPUs (1 E + 5 P).',
     ]
-    out += [f'&cpu{i} {{ unixnu,cluster-type = "{"E" if i < 2 else "P"}";'
-            + (' status = "disabled";' if i in FUSED_CPUS else '') + ' };' for i in range(8)]
+    # No unixnu,cluster-type: the BCM2837 kernel (MAX_CPU_CLUSTERS 1, no HAS_CLUSTER) maps a P core
+    # to phys_cluster_id 1 and ml_parse_cpu_topology asserts phys_cluster_id <= MAX_CPU_CLUSTER_PHY_ID
+    # before any console exists (found in QEMU, 2026-11-12). All CPUs stay one SMP cluster.
+    out += [f'&cpu{i} {{ status = "disabled"; }};' for i in sorted(FUSED_CPUS)]
     out += ['&ufs { status = "okay"; };', '&ufsphy { status = "okay"; };', ""]
     return "\n".join(out)
 
