@@ -68,13 +68,22 @@ kernel_args = ["-v", "serial=3", "ramoops=0xac340000", "ramoops_reset_after=120"
 # resets, so the MMU enable passes; a reset before the call to _arm_vm_init does not, so the hang
 # is between the MMU enable and arm_vm_init. Off for a full boot with the cut-chip CPU list;
 # to keep bisecting set panic_screen = false and, e.g.:
-#   entry_probe_reset_delay = 6
-#   entry_probe_reset_after = "_ml_parse_cpu_topology"
-#   entry_probe_reset_before = true
+# 2026-11-12: cluster-type fix boots past topology in QEMU; on the device it hangs with no text and
+# no 120 s ramoops reset. Reset 6 s after PE_create_console: a warm PSCI reset keeps the ramoops
+# console (replayed from before arm_vm_init) for Android to read.
+entry_probe_reset_delay = 6
+# After PE_create_console + 6 s: no reset. Now an immediate reset before serial_init (after
+# arm_vm_init and tb710fu_ramoops_init), which needs no timer.
+# Before serial_init: back in Android within a minute (reset; pstore empty: the zone was
+# re-initialised with no text yet). Now immediately before PE_create_console, after the kprintfs.
+# Before PE_create_console: reset, ramoops shows the XNU banner. The delayed (6 s) stage-4 reset
+# does not fire after arm_vm_init, so only immediate resets count. Next: before PE_init_printf.
+entry_probe_reset_after = "_PE_init_printf"
+entry_probe_reset_before = true
 # No UART on the tablet: draw kernel panics on the framebuffer (photograph them).
 # Off while the reset probe is on: patch-xnu-entry-probe.py exits 1 with both (the panic screen
 # fills the padding the stage-3 cave uses), and a hang before the MMU draws no panic anyway.
-panic_screen = true
+panic_screen = false
 
 [package]
 unixnu = "../UniXNU"

@@ -5,5 +5,9 @@ CONFIG_XNU_SOURCE_PTHREAD=y
 CONFIG_XNU_ARM_DT_PLATFORM=y
 CONFIG_XNU_ARMCPU=y
 CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
+# BCM2837 hard-codes PLATFORM_PANIC_LOG_PADDR 0x3c0fc000 (Raspberry Pi RAM). On SM8650 that is not
+# memory: PE_create_console -> check_for_panic_log took a data abort there (ramoops, 2026-11-12).
+# With this the panic region comes from /pram + /chosen/embedded-panic-log-size, absent here.
+CONFIG_XNU_DT_PANIC_REGION=y
 # CONFIG_XNU_NATIVE_UFS is not set
 # CONFIG_XNU_NATIVE_ADRENO is not set
